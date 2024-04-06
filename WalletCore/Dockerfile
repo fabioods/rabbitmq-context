@@ -1,8 +1,5 @@
 # Utiliza a imagem oficial do Golang como imagem base
-FROM golang:1.21
-
-# Atualiza os pacotes e instala a biblioteca librdkafka-dev
-RUN apt-get update && apt-get install -y librdkafka-dev
+FROM golang:1.22.2
 
 # Define o diretório de trabalho dentro do container
 WORKDIR /app
@@ -30,4 +27,4 @@ RUN go build -o wallet ./cmd/walletcore/
 EXPOSE 8080
 
 # Utiliza o script de espera para garantir que o MySQL esteja pronto antes de iniciar a aplicação
-CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict -- /wait-for-it.sh kafka:9092 --timeout=90 --strict -- ./wallet
+CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict -- /wait-for-it.sh rabbitmq:5672 --timeout=90 --strict -- ./wallet

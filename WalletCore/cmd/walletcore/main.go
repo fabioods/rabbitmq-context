@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	ckafka "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/fabioods/fc-ms-wallet/internal/database"
 	"github.com/fabioods/fc-ms-wallet/internal/event"
 	"github.com/fabioods/fc-ms-wallet/internal/event/handler"
@@ -14,7 +13,7 @@ import (
 	"github.com/fabioods/fc-ms-wallet/internal/web"
 	"github.com/fabioods/fc-ms-wallet/internal/web/webserver"
 	"github.com/fabioods/fc-ms-wallet/pkg/events"
-	"github.com/fabioods/fc-ms-wallet/pkg/kafka"
+	"github.com/fabioods/fc-ms-wallet/pkg/rabbitmq"
 	"github.com/fabioods/fc-ms-wallet/pkg/uow"
 	_ "github.com/go-sql-driver/mysql"
 	"net/http"
@@ -35,15 +34,39 @@ func main() {
 		panic(err)
 	}
 
-	configMap := ckafka.ConfigMap{
-		"bootstrap.servers": "kafka:29092",
-		"group.id":          "wallet",
+	connection := rabbitmq.ConnectToRabbitMQ("amqp://rabbitmq:rabbitmq@rabbitmq:5672/")
+
+	exchangeTransactions := rabbitmq.NewCreateExchange(connection, "direct", "transactions")
+	err = exchangeTransactions.CreateExchange()
+	if err != nil {
+		panic(err)
 	}
-	kafkaProducer := kafka.NewKafkaProducer(&configMap)
+
+	exchangeBalances := rabbitmq.NewCreateExchange(connection, "direct", "balances")
+	err = exchangeBalances.CreateExchange()
+	if err != nil {
+		panic(err)
+	}
+
+	transactionsCreatedQueue := rabbitmq.NewQueue(connection, "transactions_created", "status:created", "transactions")
+	err = transactionsCreatedQueue.CreateQueue()
+	if err != nil {
+		panic(err)
+	}
+
+	balancesUpdatedQueue := rabbitmq.NewQueue(connection, "balances_updated", "status:updated", "balances")
+	err = balancesUpdatedQueue.CreateQueue()
+	if err != nil {
+		panic(err)
+	}
+
+	transactionProducer := rabbitmq.NewProducer(connection, "transactions_created", "status:created", "transactions")
+	balanceProducer := rabbitmq.NewProducer(connection, "balance_updated", "status:updated", "balances")
 
 	eventDispatcher := events.NewEventDispatcher()
-	eventDispatcher.Register("transaction_created", handler.NewTransactionCreatedKafka(kafkaProducer))
-	eventDispatcher.Register("balance_updated", handler.NewBalanceUpdatedKafka(kafkaProducer))
+	eventDispatcher.Register("transaction_created", handler.NewTransactionCreatedRabbitMQ(transactionProducer))
+	eventDispatcher.Register("balance_updated", handler.NewBalanceUpdatedRabbitMQ(balanceProducer))
+
 	transactionCreatedEvent := event.NewTransactionCreated()
 	balanceUpdatedEvent := event.NewBalanceUpdated()
 
