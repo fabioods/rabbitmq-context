@@ -1,0 +1,146 @@
+package events
+
+import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/suite"
+)
+
+type TestEvent struct {
+	Name    string
+	Payload interface{}
+}
+
+func (t *TestEvent) GetName() string {
+	return t.Name
+}
+
+func (t *TestEvent) GetPayload() interface{} {
+	return t.Payload
+}
+
+func (t *TestEvent) GetDateTime() time.Time {
+	return time.Now()
+}
+
+func (e *TestEvent) SetPayload(payload interface{}) {
+	e.Payload = payload
+}
+
+type TestEventHandler struct {
+	ID int
+}
+
+func (t *TestEventHandler) Handle(event EventInterface, wg *sync.WaitGroup) {}
+
+type EventDispatcherTestSuite struct {
+	suite.Suite
+	event           TestEvent
+	event2          TestEvent
+	handler         TestEventHandler
+	handler2        TestEventHandler
+	handler3        TestEventHandler
+	eventDispatcher *EventDispatcher
+}
+
+func TestSuite(t *testing.T) {
+	suite.Run(t, new(EventDispatcherTestSuite))
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Register() {
+	err := suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Nil(err)
+	suite.Equal(1, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+
+	err = suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler2)
+	suite.Nil(err)
+	suite.Equal(2, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+
+	assert.Equal(suite.T(), &suite.handler, suite.eventDispatcher.handlers[suite.event.GetName()][0])
+	assert.Equal(suite.T(), &suite.handler2, suite.eventDispatcher.handlers[suite.event.GetName()][1])
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Register_WithSameHandler() {
+	err := suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Nil(err)
+	suite.Equal(1, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+
+	err = suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Equal(ErrHandlerAlreadyRegistered, err)
+	suite.Equal(1, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Clear() {
+	err := suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Nil(err)
+	err = suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler2)
+	suite.Nil(err)
+	suite.Equal(2, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+
+	err = suite.eventDispatcher.Register(suite.event2.GetName(), &suite.handler3)
+	suite.Nil(err)
+	suite.Equal(1, len(suite.eventDispatcher.handlers[suite.event2.GetName()]))
+
+	err = suite.eventDispatcher.Clear()
+	suite.Nil(err)
+	suite.Equal(0, len(suite.eventDispatcher.handlers))
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Has() {
+	err := suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Nil(err)
+
+	has := suite.eventDispatcher.Has(suite.event.GetName(), &suite.handler)
+	notHas := suite.eventDispatcher.Has(suite.event.GetName(), &suite.handler2)
+	assert.Equal(suite.T(), true, has)
+	assert.Equal(suite.T(), false, notHas)
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Remove() {
+	err := suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler)
+	suite.Nil(err)
+	err = suite.eventDispatcher.Register(suite.event.GetName(), &suite.handler2)
+	suite.Nil(err)
+	suite.Equal(2, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+
+	err = suite.eventDispatcher.Remove(suite.event.GetName(), &suite.handler2)
+	suite.Nil(err)
+	suite.Equal(1, len(suite.eventDispatcher.handlers[suite.event.GetName()]))
+}
+
+type MockHandler struct {
+	mock.Mock
+}
+
+func (m *MockHandler) Handle(event EventInterface, wg *sync.WaitGroup) {
+	m.Called(event)
+	wg.Done()
+}
+
+func (suite *EventDispatcherTestSuite) TestEventDispatcher_Dispatch() {
+	eventHandler := &MockHandler{}
+	eventHandler.On("Handle", &suite.event).Return(nil)
+	err := suite.eventDispatcher.Register(suite.event.GetName(), eventHandler)
+	err = suite.eventDispatcher.Dispatch(&suite.event)
+	suite.Nil(err)
+	eventHandler.AssertExpectations(suite.T())
+}
+
+func (suite *EventDispatcherTestSuite) SetupTest() {
+	suite.eventDispatcher = NewEventDispatcher()
+	suite.handler = TestEventHandler{ID: 1}
+	suite.handler2 = TestEventHandler{ID: 2}
+	suite.handler3 = TestEventHandler{ID: 3}
+	suite.event = TestEvent{
+		Name:    "test",
+		Payload: "test",
+	}
+	suite.event2 = TestEvent{
+		Name:    "Test 2",
+		Payload: "Test 2",
+	}
+}

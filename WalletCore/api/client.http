@@ -1,0 +1,39 @@
+POST http://localhost:8080/clients HTTP/1.1
+Content-Type: application/json
+
+{
+    "name": "Client 1",
+    "email": "client@gmail.com"
+}
+
+####
+POST http://localhost:8080/clients HTTP/1.1
+Content-Type: application/json
+
+{
+"name": "Client 2",
+"email": "client2@gmail.com"
+}
+
+####
+POST http://localhost:8080/accounts HTTP/1.1
+Content-Type: application/json
+
+{
+  "client_id": "2"
+}
+
+
+####
+POST http://localhost:8080/transactions HTTP/1.1
+Content-Type: application/json
+
+{
+  "account_id_from": "2",
+  "account_id_to": "1",
+  "amount":  100
+}
+
+###
+POST http://localhost:8080/ping HTTP/1.1
+
