@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"github.com/fabioods/balance/internal/usecase"
 	"github.com/fabioods/balance/internal/web/webserver"
+	"github.com/fabioods/balance/pkg/rabbitmq"
 	"log"
 	"net/http"
 
-	ckafka "github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/fabioods/balance/internal/database"
-	"github.com/fabioods/balance/pkg/kafka"
 	"github.com/go-chi/chi/v5"
 	_ "github.com/go-sql-driver/mysql"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -35,8 +35,19 @@ func main() {
 	findusecase := usecase.NewFindByIDUseCase(accountDB)
 	reportBalanceUseCase := usecase.NewReportBalanceForAccountUseCase(accountDB)
 
-	consumer := initKafka()
-	msgChan := make(chan *ckafka.Message)
+	connection := rabbitmq.ConnectToRabbitMQ("amqp://rabbitmq:rabbitmq@rabbitmq:5672/")
+	exchangeBalances := rabbitmq.NewExchange(connection, "direct", "balances")
+	err = exchangeBalances.DeclareExchange()
+	if err != nil {
+		panic(err)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+	consumer := rabbitmq.NewConsumer(connection, "transactions_created")
+
+	msgChan := make(chan amqp.Delivery)
 	go processMessage(ctx, msgChan, usecaseProcessTransaction)
 	go consume(ctx, consumer, msgChan)
 
@@ -51,36 +62,30 @@ func main() {
 	}
 }
 
-func initKafka() *kafka.Consumer {
-	configMap := &ckafka.ConfigMap{
-		"bootstrap.servers": "kafka:29092",
-		"group.id":          "wallet",
-		"auto.offset.reset": "earliest",
-	}
-
-	topics := []string{"transactions"}
-	return kafka.NewConsumer(configMap, topics)
-}
-
-func processMessage(ctx context.Context, msgChan chan *ckafka.Message, uc *usecase.ProcessTransactionUseCase) {
+func processMessage(ctx context.Context, msgChan chan amqp.Delivery, uc *usecase.ProcessTransactionUseCase) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-msgChan:
-			fmt.Printf("Message Received: %s\n", string(msg.Value))
+			fmt.Printf("Message Received: %s\n", string(msg.Body))
 			var transactionDTO usecase.ProcessTransactionInputDto
-			if err := json.Unmarshal(msg.Value, &transactionDTO); err != nil {
+			if err := json.Unmarshal(msg.Body, &transactionDTO); err != nil {
 				log.Fatalf("Error to unmarshal message: %v", err)
 			}
+			fmt.Printf("Transaction: %v\n", transactionDTO)
 			if err := uc.Execute(transactionDTO); err != nil {
 				log.Printf("Error processing transaction: %v", err)
 			}
+			if err := msg.Ack(false); err != nil {
+				log.Printf("Error acknowledging message: %v", err)
+			}
+			fmt.Printf("Message Acknowledged: %s\n", string(msg.Body))
 		}
 	}
 }
 
-func consume(ctx context.Context, consumer *kafka.Consumer, msgChan chan *ckafka.Message) {
+func consume(ctx context.Context, consumer *rabbitmq.Consumer, msgChan chan amqp.Delivery) {
 	for {
 		select {
 		case <-ctx.Done():

@@ -1,7 +1,7 @@
 package rabbitmq
 
 import (
-	"github.com/streadway/amqp"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 )
 
@@ -17,25 +17,23 @@ func NewConsumer(conn *amqp.Connection, queueName string) *Consumer {
 	}
 }
 
-func (c Consumer) Consume(msgChan chan amqp.Delivery) {
+func (c Consumer) Consume(msgChan chan amqp.Delivery) error {
 	ch, err := c.Conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %s", err)
+		log.Printf("Failed to open a channel: %s", err)
+		return err
 	}
 	defer ch.Close()
 
-	q, err := ch.QueueDeclare(c.QueueName, true, false, false, false, nil)
+	msgs, err := ch.Consume(c.QueueName, "", false, false, false, false, nil)
 	if err != nil {
-		log.Fatalf("Failed to declare a queue: %s", err)
-	}
-
-	msgs, err := ch.Consume(q.Name, "", true, false, false, false, nil)
-	if err != nil {
-		log.Fatalf("Failed to register a consumer: %s", err)
+		log.Printf("Failed to register a consumer: %s", err)
+		return err
 	}
 
 	for d := range msgs {
 		log.Printf("Received a message: %s", d.Body)
 		msgChan <- d
 	}
+	return nil
 }

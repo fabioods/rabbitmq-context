@@ -18,7 +18,7 @@ func NewQueue(conn *amqp.Connection, queueName, routingKey, exchange string) *Qu
 	}
 }
 
-func (q Queue) CreateQueue() error {
+func (q Queue) DeclareQueue() error {
 	ch, err := q.Conn.Channel()
 	if err != nil {
 		return err

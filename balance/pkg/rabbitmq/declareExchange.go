@@ -8,7 +8,7 @@ type Exchange struct {
 	ExchangeName string
 }
 
-func NewCreateExchange(connection *amqp.Connection, exchangeType, exchangeName string) *Exchange {
+func NewExchange(connection *amqp.Connection, exchangeType, exchangeName string) *Exchange {
 	return &Exchange{
 		Conn:         connection,
 		ExchangeType: exchangeType,

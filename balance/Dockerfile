@@ -1,8 +1,5 @@
 # Utiliza a imagem oficial do Golang como imagem base
-FROM golang:1.21
-
-# Atualiza os pacotes e instala a biblioteca librdkafka-dev
-RUN apt-get update && apt-get install -y librdkafka-dev
+FROM golang:1.22.2
 
 # Define o diretório de trabalho dentro do container
 WORKDIR /app
@@ -20,14 +17,10 @@ COPY go.sum ./
 # Baixa as dependências de Go
 RUN go mod download
 
-# Copia o diretório do projeto para o diretório de trabalho
-COPY . .
-
-# Compila o aplicativo Go para um binário
-RUN go build -o balance ./cmd/balance/
-
 # Expõe a porta 3003
 EXPOSE 3003
 
-# Utiliza o script de espera para garantir que o MySQL esteja pronto antes de iniciar a aplicação
-CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict -- /wait-for-it.sh kafka:9092 --timeout=90 --strict -- ./balance
+CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict && \
+    /wait-for-it.sh rabbitmq:5672 --timeout=90 --strict && \
+    /wait-for-it.sh walletcore:8080 --timeout=500 --strict && \
+    go run ./cmd/balance/
