@@ -36,8 +36,15 @@ func main() {
 	reportBalanceUseCase := usecase.NewReportBalanceForAccountUseCase(accountDB)
 
 	connection := rabbitmq.ConnectToRabbitMQ("amqp://rabbitmq:rabbitmq@rabbitmq:5672/")
-	exchangeBalances := rabbitmq.NewExchange(connection, "direct", "balances")
-	err = exchangeBalances.DeclareExchange()
+
+	exchangeTransactions := rabbitmq.NewExchange(connection, "direct", "transactions")
+	err = exchangeTransactions.DeclareExchange()
+	if err != nil {
+		panic(err)
+	}
+
+	transactionsCreatedQueue := rabbitmq.NewQueue(connection, "transactions_created", "status:created", "transactions")
+	err = transactionsCreatedQueue.DeclareQueue()
 	if err != nil {
 		panic(err)
 	}

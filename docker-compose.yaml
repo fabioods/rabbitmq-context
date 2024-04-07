@@ -1,18 +1,23 @@
 version: '3'
 services:
-#  balance:
-#    build: ./balance
-#    platform: linux/amd64
-#    container_name: balance
-#    ports:
-#      - "3003:3003"
-#    depends_on:
-#      - mysql
+  balance:
+    build: ./balance
+    platform: linux/amd64
+    container_name: balance
+    volumes:
+      - ./balance:/app
+    ports:
+      - "3003:3003"
+    depends_on:
+      - mysql
+      - rabbitmq
 
   walletcore:
     build: ./WalletCore
     platform: linux/amd64
     container_name: walletcore
+    volumes:
+      - ./WalletCore:/app
     ports:
       - "8080:8080"
     depends_on:
@@ -34,6 +39,7 @@ services:
 
   rabbitmq:
     image: "rabbitmq:3-management"
+    container_name: rabbitMQ
     environment:
       RABBITMQ_DEFAULT_USER: "rabbitmq"
       RABBITMQ_DEFAULT_PASS: "rabbitmq"
