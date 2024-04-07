@@ -17,14 +17,10 @@ COPY go.sum ./
 # Baixa as dependências de Go
 RUN go mod download
 
-# Copia o diretório do projeto para o diretório de trabalho
-COPY . .
-
-# Compila o aplicativo Go para um binário
-RUN go build -o wallet ./cmd/walletcore/
+# O diretório do projeto será montado como um volume, então não é necessário copiá-lo
 
 # Expõe a porta 8080
 EXPOSE 8080
 
-# Utiliza o script de espera para garantir que o MySQL esteja pronto antes de iniciar a aplicação
-CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict -- /wait-for-it.sh rabbitmq:5672 --timeout=90 --strict -- ./wallet
+# Compila e executa o aplicativo em tempo real quando o container é iniciado
+CMD /wait-for-it.sh mysql:3306 --timeout=90 --strict -- /wait-for-it.sh rabbitmq:5672 --timeout=90 --strict -- go run ./cmd/walletcore/

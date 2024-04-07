@@ -2,7 +2,7 @@ package rabbitmq
 
 import (
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/streadway/amqp"
 )
 
 func ConnectToRabbitMQ(uri string) *amqp.Connection {

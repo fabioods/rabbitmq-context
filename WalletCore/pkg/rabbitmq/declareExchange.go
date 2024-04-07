@@ -1,6 +1,6 @@
 package rabbitmq
 
-import "github.com/streadway/amqp"
+import amqp "github.com/rabbitmq/amqp091-go"
 
 type Exchange struct {
 	Conn         *amqp.Connection
@@ -8,7 +8,7 @@ type Exchange struct {
 	ExchangeName string
 }
 
-func NewCreateExchange(connection *amqp.Connection, exchangeType, exchangeName string) *Exchange {
+func NewExchange(connection *amqp.Connection, exchangeType, exchangeName string) *Exchange {
 	return &Exchange{
 		Conn:         connection,
 		ExchangeType: exchangeType,
@@ -16,7 +16,7 @@ func NewCreateExchange(connection *amqp.Connection, exchangeType, exchangeName s
 	}
 }
 
-func (e Exchange) CreateExchange() error {
+func (e Exchange) DeclareExchange() error {
 	channel, err := e.Conn.Channel()
 	if err != nil {
 		return err

@@ -36,26 +36,26 @@ func main() {
 
 	connection := rabbitmq.ConnectToRabbitMQ("amqp://rabbitmq:rabbitmq@rabbitmq:5672/")
 
-	exchangeTransactions := rabbitmq.NewCreateExchange(connection, "direct", "transactions")
-	err = exchangeTransactions.CreateExchange()
+	exchangeTransactions := rabbitmq.NewExchange(connection, "direct", "transactions")
+	err = exchangeTransactions.DeclareExchange()
 	if err != nil {
 		panic(err)
 	}
 
-	exchangeBalances := rabbitmq.NewCreateExchange(connection, "direct", "balances")
-	err = exchangeBalances.CreateExchange()
+	exchangeBalances := rabbitmq.NewExchange(connection, "direct", "balances")
+	err = exchangeBalances.DeclareExchange()
 	if err != nil {
 		panic(err)
 	}
 
 	transactionsCreatedQueue := rabbitmq.NewQueue(connection, "transactions_created", "status:created", "transactions")
-	err = transactionsCreatedQueue.CreateQueue()
+	err = transactionsCreatedQueue.DeclareQueue()
 	if err != nil {
 		panic(err)
 	}
 
 	balancesUpdatedQueue := rabbitmq.NewQueue(connection, "balances_updated", "status:updated", "balances")
-	err = balancesUpdatedQueue.CreateQueue()
+	err = balancesUpdatedQueue.DeclareQueue()
 	if err != nil {
 		panic(err)
 	}
